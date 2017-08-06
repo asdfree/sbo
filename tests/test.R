@@ -1,76 +1,100 @@
 if ( .Platform$OS.type == 'windows' ) memory.limit( 256000 )
 
-library(lodown)
-# examine all available SBO microdata files
-sbo_cat <-
-	get_catalog( "sbo" ,
-		output_dir = file.path( getwd() ) )
 
-# 2015 only
-sbo_cat <- subset( sbo_cat , year == 2015 )
-# download the microdata to your local computer
-stopifnot( nrow( sbo_cat ) > 0 )
+gc()
+
+options( survey.lonely.psu = "adjust" )
 
 library(survey)
-
-sbo_df <- readRDS( file.path( getwd() , "2015 main.rds" ) )
+library(mitools)
 
 sbo_design <- 
-	svydesign( 
-		~ psu , 
-		strata = ~ stratum , 
-		data = sbo_df , 
-		weights = ~ weight , 
-		nest = TRUE 
+	readRDS( file.path( getwd() , "2007 main.rds" ) )
+	
+# memory conservation step
+variables_to_keep <- 
+	c( 
+		"one" , 
+		"newwgt" , 
+		"tabwgt" , 
+		"receipts_noisy" ,
+		"employment_noisy" ,
+		"n07_employer" ,
+		"established" ,
+		"healthins" ,
+		"husbwife"
 	)
+
+# keep only columns used in this analysis
+sbo_design$coef$variables <-
+	sbo_design$coef$variables[ variables_to_keep ]
+	
+sbo_design$var <-
+	lapply( 
+		sbo_design$var , 
+		function( w ){
+			w$variables <- w$variables[ variables_to_keep ]
+			w
+		}
+	)
+	
+gc()
+	
 sbo_design <- 
-	update( 
+	lodown:::sbo_update( 
 		sbo_design , 
-		q2 = q2 ,
-		never_rarely_wore_bike_helmet = as.numeric( qn8 == 1 ) ,
-		ever_smoked_marijuana = as.numeric( qn47 == 1 ) ,
-		ever_tried_to_quit_cigarettes = as.numeric( q36 > 2 ) ,
-		smoked_cigarettes_past_year = as.numeric( q36 > 1 )
+		established_before_2000 =
+			ifelse( established %in% c( '0' , 'A' ) , NA , as.numeric( established < 4 ) ) ,
+			
+		healthins =
+			factor( healthins , levels = 1:2 ,
+				labels = c( "offered health insurance" , "did not offer health insurance" )
+			)
 	)
-sum( weights( sbo_design , "sampling" ) != 0 )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyby( ~ one , ~ one , unwtd.count ) ) )
 
-svyby( ~ one , ~ ever_smoked_marijuana , sbo_design , unwtd.count )
-svytotal( ~ one , sbo_design )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyby( ~ one , ~ healthins , unwtd.count ) ) )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svytotal( ~ one ) ) )
 
-svyby( ~ one , ~ ever_smoked_marijuana , sbo_design , svytotal )
-svymean( ~ bmipct , sbo_design , na.rm = TRUE )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svyby( ~ one , ~ healthins , svytotal )
+) )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svymean( ~ receipts_noisy , na.rm = TRUE ) ) )
 
-svyby( ~ bmipct , ~ ever_smoked_marijuana , sbo_design , svymean , na.rm = TRUE )
-svymean( ~ q2 , sbo_design , na.rm = TRUE )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svyby( ~ receipts_noisy , ~ healthins , svymean , na.rm = TRUE )
+) )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svymean( ~ n07_employer , na.rm = TRUE ) ) )
 
-svyby( ~ q2 , ~ ever_smoked_marijuana , sbo_design , svymean , na.rm = TRUE )
-svytotal( ~ bmipct , sbo_design , na.rm = TRUE )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svyby( ~ n07_employer , ~ healthins , svymean , na.rm = TRUE )
+) )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svytotal( ~ receipts_noisy , na.rm = TRUE ) ) )
 
-svyby( ~ bmipct , ~ ever_smoked_marijuana , sbo_design , svytotal , na.rm = TRUE )
-svytotal( ~ q2 , sbo_design , na.rm = TRUE )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svyby( ~ receipts_noisy , ~ healthins , svytotal , na.rm = TRUE )
+) )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svytotal( ~ n07_employer , na.rm = TRUE ) ) )
 
-svyby( ~ q2 , ~ ever_smoked_marijuana , sbo_design , svytotal , na.rm = TRUE )
-svyquantile( ~ bmipct , sbo_design , 0.5 , na.rm = TRUE )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svyby( ~ n07_employer , ~ healthins , svytotal , na.rm = TRUE )
+) )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyquantile( ~ receipts_noisy , 0.5 , se = TRUE , na.rm = TRUE ) ) )
 
-svyby( 
-	~ bmipct , 
-	~ ever_smoked_marijuana , 
-	sbo_design , 
-	svyquantile , 
-	0.5 ,
-	ci = TRUE ,
-	keep.var = TRUE ,
-	na.rm = TRUE
-)
-svyratio( 
-	numerator = ~ ever_tried_to_quit_cigarettes , 
-	denominator = ~ smoked_cigarettes_past_year , 
-	sbo_design ,
-	na.rm = TRUE
-)
-sub_sbo_design <- subset( sbo_design , qn41 == 1 )
-svymean( ~ bmipct , sub_sbo_design , na.rm = TRUE )
-this_result <- svymean( ~ bmipct , sbo_design , na.rm = TRUE )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svyby( 
+		~ receipts_noisy , ~ healthins , svyquantile , 0.5 ,
+		se = TRUE , keep.var = TRUE , ci = TRUE , na.rm = TRUE
+) ) )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svyratio( numerator = ~ receipts_noisy , denominator = ~ employment_noisy , na.rm = TRUE )
+) )
+sub_sbo_design <- lodown:::sbo_subset( sbo_design , husbwife %in% 1:3 )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sub_sbo_design , svymean( ~ receipts_noisy , na.rm = TRUE ) ) )
+this_result <-
+	lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+		svymean( ~ receipts_noisy , na.rm = TRUE )
+	) )
 
 coef( this_result )
 SE( this_result )
@@ -78,53 +102,33 @@ confint( this_result )
 cv( this_result )
 
 grouped_result <-
-	svyby( 
-		~ bmipct , 
-		~ ever_smoked_marijuana , 
-		sbo_design , 
-		svymean ,
-		na.rm = TRUE 
-	)
-	
+	lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+		svyby( ~ receipts_noisy , ~ healthins , svymean , na.rm = TRUE )
+	) )
+
 coef( grouped_result )
 SE( grouped_result )
 confint( grouped_result )
 cv( grouped_result )
-degf( sbo_design )
-svyvar( ~ bmipct , sbo_design , na.rm = TRUE )
+degf( sbo_design$designs[[1]] )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyvar( ~ receipts_noisy , na.rm = TRUE ) ) )
 # SRS without replacement
-svymean( ~ bmipct , sbo_design , na.rm = TRUE , deff = TRUE )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svymean( ~ receipts_noisy , na.rm = TRUE , deff = TRUE )
+) )
 
 # SRS with replacement
-svymean( ~ bmipct , sbo_design , na.rm = TRUE , deff = "replace" )
-svyciprop( ~ never_rarely_wore_bike_helmet , sbo_design ,
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svymean( ~ receipts_noisy , na.rm = TRUE , deff = "replace" )
+) )
+lodown:::MIsvyciprop( ~ established_before_2000 , sbo_design ,
 	method = "likelihood" , na.rm = TRUE )
-svyttest( bmipct ~ never_rarely_wore_bike_helmet , sbo_design )
-svychisq( 
-	~ never_rarely_wore_bike_helmet + q2 , 
-	sbo_design 
-)
+lodown:::MIsvyttest( receipts_noisy ~ established_before_2000 , sbo_design )
+lodown:::MIsvychisq( ~ established_before_2000 + n07_employer , sbo_design )
 glm_result <- 
-	svyglm( 
-		bmipct ~ never_rarely_wore_bike_helmet + q2 , 
-		sbo_design 
-	)
-
+	lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+		svyglm( receipts_noisy ~ established_before_2000 + n07_employer )
+	) )
+	
 summary( glm_result )
-library(srvyr)
-sbo_srvyr_design <- as_survey( sbo_design )
-sbo_srvyr_design %>%
-	summarize( mean = survey_mean( bmipct , na.rm = TRUE ) )
-
-sbo_srvyr_design %>%
-	group_by( ever_smoked_marijuana ) %>%
-	summarize( mean = survey_mean( bmipct , na.rm = TRUE ) )
-
-unwtd.count( ~ never_rarely_wore_bike_helmet , yrbss_design )
-
-svytotal( ~ one , subset( yrbss_design , !is.na( never_rarely_wore_bike_helmet ) ) )
- 
-svymean( ~ never_rarely_wore_bike_helmet , yrbss_design , na.rm = TRUE )
-
-svyciprop( ~ never_rarely_wore_bike_helmet , yrbss_design , na.rm = TRUE , method = "beta" )
 
