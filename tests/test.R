@@ -51,6 +51,8 @@ sbo_design <-
 				labels = c( "offered health insurance" , "did not offer health insurance" )
 			)
 	)
+
+gc()
 lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyby( ~ one , ~ one , unwtd.count ) ) )
 
 lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyby( ~ one , ~ healthins , unwtd.count ) ) )
@@ -90,7 +92,7 @@ lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
 	svyratio( numerator = ~ receipts_noisy , denominator = ~ employment_noisy )
 ) )
 sub_sbo_design <- lodown:::sbo_subset( sbo_design , husbwife %in% 1:3 )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sub_sbo_design , svymean( ~ receipts_noisy ) ) )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sub_sbo_design , svymean( ~ receipts_noisy ) ) ) ; rm( sub_sbo_design ) ; gc()
 this_result <-
 	lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
 		svymean( ~ receipts_noisy )
@@ -122,7 +124,7 @@ lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
 	svymean( ~ receipts_noisy , deff = "replace" )
 ) )
 lodown:::sbo_MIsvyciprop( ~ established_before_2000 , sbo_design ,
-	method = "likelihood" , na.rm = TRUE )
+	method = "likelihood" , na.rm = TRUE ) ; gc()
 # not implemented lodown:::MIsvyttest( receipts_noisy ~ established_before_2000 , sbo_design )
 # not implemented lodown:::MIsvychisq( ~ established_before_2000 + n07_employer , sbo_design )
 glm_result <- 
