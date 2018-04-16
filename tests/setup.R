@@ -129,8 +129,8 @@ lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
 ) )
 lodown:::sbo_MIsvyciprop( ~ established_before_2000 , sbo_design ,
 	method = "likelihood" , na.rm = TRUE ) ; gc()
-MIsvyttest( receipts_noisy ~ established_before_2000 , sbo_design )
-MIsvychisq( ~ established_before_2000 + n07_employer , sbo_design )
+# not implemented lodown:::sbo_MIsvyttest( receipts_noisy ~ established_before_2000 , sbo_design )
+# not implemented lodown:::sbo_MIsvychisq( ~ established_before_2000 + n07_employer , sbo_design )
 glm_result <- 
 	lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
 		svyglm( receipts_noisy ~ established_before_2000 + n07_employer )
