@@ -85,12 +85,17 @@ lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svytotal( ~ n07_employer
 lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
 	svyby( ~ n07_employer , ~ healthins , svytotal , na.rm = TRUE )
 ) )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyquantile( ~ receipts_noisy , 0.5 , se = TRUE ) ) )
+lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	svyquantile(
+		~ receipts_noisy ,
+		0.5 , se = TRUE 
+) ) )
 
 lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
-	svyby( 
-		~ receipts_noisy , ~ healthins , svyquantile , 0.5 ,
-		se = TRUE , keep.var = TRUE , ci = TRUE 
+	svyby(
+		~ receipts_noisy , ~ healthins , svyquantile ,
+		0.5 , se = TRUE ,
+		keep.var = TRUE , ci = TRUE 
 ) ) )
 lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
 	svyratio( numerator = ~ receipts_noisy , denominator = ~ employment_noisy )
