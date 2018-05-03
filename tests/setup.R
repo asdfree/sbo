@@ -45,7 +45,7 @@ sbo_design$var <-
 gc()
 # this step conserves RAM
 sbo_design <- 
-	lodown:::sbo_update( 
+	sbo_update( 
 		sbo_design , 
 		established_before_2000 =
 			ifelse( established %in% c( '0' , 'A' ) , NA , as.numeric( established < 4 ) ) ,
@@ -57,53 +57,53 @@ sbo_design <-
 	)
 
 gc()
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyby( ~ one , ~ one , unwtd.count ) ) )
+sbo_MIcombine( sbo_with( sbo_design , svyby( ~ one , ~ one , unwtd.count ) ) )
 
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyby( ~ one , ~ healthins , unwtd.count ) ) )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svytotal( ~ one ) ) )
+sbo_MIcombine( sbo_with( sbo_design , svyby( ~ one , ~ healthins , unwtd.count ) ) )
+sbo_MIcombine( sbo_with( sbo_design , svytotal( ~ one ) ) )
 
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svyby( ~ one , ~ healthins , svytotal )
 ) )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svymean( ~ receipts_noisy ) ) )
+sbo_MIcombine( sbo_with( sbo_design , svymean( ~ receipts_noisy ) ) )
 
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svyby( ~ receipts_noisy , ~ healthins , svymean )
 ) )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svymean( ~ n07_employer , na.rm = TRUE ) ) )
+sbo_MIcombine( sbo_with( sbo_design , svymean( ~ n07_employer , na.rm = TRUE ) ) )
 
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svyby( ~ n07_employer , ~ healthins , svymean , na.rm = TRUE )
 ) )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svytotal( ~ receipts_noisy ) ) )
+sbo_MIcombine( sbo_with( sbo_design , svytotal( ~ receipts_noisy ) ) )
 
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svyby( ~ receipts_noisy , ~ healthins , svytotal )
 ) )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svytotal( ~ n07_employer , na.rm = TRUE ) ) )
+sbo_MIcombine( sbo_with( sbo_design , svytotal( ~ n07_employer , na.rm = TRUE ) ) )
 
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svyby( ~ n07_employer , ~ healthins , svytotal , na.rm = TRUE )
 ) )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svyquantile(
 		~ receipts_noisy ,
 		0.5 , se = TRUE 
 ) ) )
 
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svyby(
 		~ receipts_noisy , ~ healthins , svyquantile ,
 		0.5 , se = TRUE ,
 		keep.var = TRUE , ci = TRUE 
 ) ) )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svyratio( numerator = ~ receipts_noisy , denominator = ~ employment_noisy )
 ) )
-sub_sbo_design <- lodown:::sbo_subset( sbo_design , husbwife %in% 1:3 )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sub_sbo_design , svymean( ~ receipts_noisy ) ) ) ; rm( sub_sbo_design ) ; gc()
+sub_sbo_design <- sbo_subset( sbo_design , husbwife %in% 1:3 )
+sbo_MIcombine( sbo_with( sub_sbo_design , svymean( ~ receipts_noisy ) ) ) ; rm( sub_sbo_design ) ; gc()
 this_result <-
-	lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	sbo_MIcombine( sbo_with( sbo_design ,
 		svymean( ~ receipts_noisy )
 	) )
 
@@ -113,7 +113,7 @@ confint( this_result )
 cv( this_result )
 
 grouped_result <-
-	lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	sbo_MIcombine( sbo_with( sbo_design ,
 		svyby( ~ receipts_noisy , ~ healthins , svymean )
 	) )
 
@@ -121,23 +121,23 @@ coef( grouped_result )
 SE( grouped_result )
 confint( grouped_result )
 cv( grouped_result )
-lodown:::sbo_degf( sbo_design )
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design , svyvar( ~ receipts_noisy ) ) )
+sbo_degf( sbo_design )
+sbo_MIcombine( sbo_with( sbo_design , svyvar( ~ receipts_noisy ) ) )
 # SRS without replacement
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svymean( ~ receipts_noisy , deff = TRUE )
 ) )
 
 # SRS with replacement
-lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+sbo_MIcombine( sbo_with( sbo_design ,
 	svymean( ~ receipts_noisy , deff = "replace" )
 ) )
-lodown:::sbo_MIsvyciprop( ~ established_before_2000 , sbo_design ,
+sbo_MIsvyciprop( ~ established_before_2000 , sbo_design ,
 	method = "likelihood" , na.rm = TRUE ) ; gc()
-# not implemented lodown:::sbo_MIsvyttest( receipts_noisy ~ established_before_2000 , sbo_design )
-# not implemented lodown:::sbo_MIsvychisq( ~ established_before_2000 + n07_employer , sbo_design )
+# not implemented sbo_MIsvyttest( receipts_noisy ~ established_before_2000 , sbo_design )
+# not implemented sbo_MIsvychisq( ~ established_before_2000 + n07_employer , sbo_design )
 glm_result <- 
-	lodown:::sbo_MIcombine( lodown:::sbo_with( sbo_design ,
+	sbo_MIcombine( sbo_with( sbo_design ,
 		svyglm( receipts_noisy ~ established_before_2000 + n07_employer )
 	) )
 	
