@@ -4,7 +4,7 @@ Title: sbo
 Version: 0.1.0
 Author: Anthony Joseph Damico
 Maintainer: Anthony Joseph Damico <ajdamico@gmail.com>
-Description: A continuous integration package, tested on ajdamico/asdfree commit 65348550c693333330a7387088e163eefcfd8181 ajdamico/lodown commit 285170875e5fb061332f1c485df9dd003eab39ef
+Description: A continuous integration package, tested on ajdamico/asdfree commit 54138a629d88e2b9ea1310e32c0025de903bd706 ajdamico/lodown commit 1e858b9d07f4ebfcc1c037fb325c5b57948bcbb9
 License: GPL-3
 Imports: survey, mitools, lodown
 Encoding: UTF-8
