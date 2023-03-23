@@ -158,13 +158,14 @@ sbo_update <-
 
 sbo_degf <- function( x ) survey:::degf( x$coef )
 
+library(httr)
 library(readr)
 
 tf <- tempfile()
 
 this_url <- "https://www2.census.gov/programs-surveys/sbo/datasets/2007/pums_csv.zip"
 
-download.file( this_url , tf , mode = 'wb' )
+GET( this_url , write_disk( tf ) )
 
 sbo_tbl <- read_csv( tf )
 
