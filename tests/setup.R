@@ -4,7 +4,7 @@
 sbo_MIcombine <-
 	function( x , adjustment = 1.992065 ){
 	
-		# just pull the structure of a variance-covariance matrix
+		# pull the structure of a variance-covariance matrix
 		variance.shell <- suppressWarnings( vcov( x$var[[1]] ) )
 		
 		# initiate a function that will overwrite the diagonals.
@@ -30,8 +30,7 @@ sbo_MIcombine <-
 		# adjust every number with the factor in the user guide
 		adj_var <- adjustment * variance
 
-		# construct a result that looks like
-		# other sbo_MIcombine methods
+		# construct a result that looks like other sbo_MIcombine methods
 		rval <-
 			list( 
 				coefficients = coef( x$coef ) ,
@@ -57,8 +56,6 @@ sbo_with <-
 		# notice it uses this_design$coef
 		results <- eval( expr , list( .design = this_design$coef ) )
 		
-		gc()
-		
 		# this is used to calculate the variance, adjusted variance, standard error
 		# notice it uses the this_design$var object
 		variances <- 
@@ -69,28 +66,20 @@ sbo_with <-
 				} 
 			)
 		
-		gc()
-		
 		# combine both results..
 		rval <- list( coef = results , var = variances )
 		
 		# ..into a brand new object class
 		class( rval ) <- 'imputationResultList'
 		
-		gc()
-		
-		# and return it.
 		rval
 	}
 
 sbo_subset <-
 	function( x , ... ){
 		
-		# subset the survey object that's going to be used for
-		# means, medians, totals, etc.
+		# subset the survey object
 		coef.sub <- subset( x$coef , ... )
-		
-		gc()
 		
 		# replicate `var.sub` so it's got all the same attributes as `x$var`
 		var.sub <- x$var
@@ -98,21 +87,16 @@ sbo_subset <-
 		# but then overwrite the `designs` attribute with a subset
 		var.sub$designs <- lapply( x$var$designs , subset , ... )
 		
-		gc()
-		
-		# now re-create the `sbosvyimputationList` just as before
+		# now re-create the `sbosvyimputationList` just as before..
 		sub.svy <-
 			list(
 				coef = coef.sub ,
 				var = var.sub
 			)
 		
-		# ..class it..
+		# ..and give it the same class
 		sub.svy$call <- sys.call(-1)
-		
-		gc()
-		
-		# ..return it. done.
+
 		sub.svy
 	}
 
@@ -123,15 +107,11 @@ sbo_update <-
 		# means, medians, totals, etc.
 		coef.upd <- update( x$coef , ... )
 		
-		gc()
-		
 		# replicate `var.upd` so it's got all the same attributes as `x$var`
 		var.upd <- x$var
 		
 		# but then overwrite the `designs` attribute with an update
 		var.upd$designs <- lapply( x$var$designs , update , ... )
-		
-		gc()
 		
 		# now re-create the `sbosvyimputationList` just as before
 		upd.svy <-
@@ -139,10 +119,7 @@ sbo_update <-
 				coef = coef.upd ,
 				var = var.upd
 			)
-			
-		gc()
 		
-		# ..return it. done.
 		upd.svy
 	}
 
