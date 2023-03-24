@@ -156,7 +156,7 @@ sbo_update <-
 		upd.svy
 	}
 
-sbo_degf <- function( x ) survey:::degf( x$coef )
+sbo_degf <- function( x ) degf( x$coef )
 
 library(httr)
 library(readr)
@@ -179,6 +179,34 @@ sbo_df[ , 'one' ] <- 1
 sbo_df[ , 'newwgt' ] <- 10 * sbo_df[ , 'tabwgt' ] * sqrt( 1 - 1 / sbo_df[ , 'tabwgt' ] )
 # https://www2.census.gov/econ/sbo/07/pums/2007_sbo_pums_users_guide.pdf#page=7
 
+# replace percent missings with zeroes
+for( i in 1:4 ) sbo_df[ is.na( sbo_df[ , paste0( 'pct' , i ) ] ) , paste0( 'pct' , i ) ] <- 0
+
+# count ownership ethnicity
+sbo_df[ , 'hispanic_pct' ] <- sbo_df[ , 'nonhispanic_pct' ] <- 0
+
+# count ownership gender
+sbo_df[ , 'male_pct' ] <- sbo_df[ , 'female_pct' ] <- 0
+
+for( i in 1:4 ) {
+
+	sbo_df[ sbo_df[ , paste0( 'eth' , i ) ] %in% 'H' , 'hispanic_pct' ] <-
+		sbo_df[ sbo_df[ , paste0( 'eth' , i ) ] %in% 'H' , 'hispanic_pct' ] +
+		sbo_df[ sbo_df[ , paste0( 'eth' , i ) ] %in% 'H' , paste0( 'pct' , i ) ]
+		
+	sbo_df[ sbo_df[ , paste0( 'eth' , i ) ] %in% 'N' , 'nonhispanic_pct' ] <-
+		sbo_df[ sbo_df[ , paste0( 'eth' , i ) ] %in% 'N' , 'nonhispanic_pct' ] +
+		sbo_df[ sbo_df[ , paste0( 'eth' , i ) ] %in% 'N' , paste0( 'pct' , i ) ]
+		
+	sbo_df[ sbo_df[ , paste0( 'sex' , i ) ] %in% 'M' , 'male_pct' ] <-
+		sbo_df[ sbo_df[ , paste0( 'sex' , i ) ] %in% 'M' , 'male_pct' ] +
+		sbo_df[ sbo_df[ , paste0( 'sex' , i ) ] %in% 'M' , paste0( 'pct' , i ) ]
+		
+	sbo_df[ sbo_df[ , paste0( 'sex' , i ) ] %in% 'F' , 'female_pct' ] <-
+		sbo_df[ sbo_df[ , paste0( 'sex' , i ) ] %in% 'F' , 'female_pct' ] +
+		sbo_df[ sbo_df[ , paste0( 'sex' , i ) ] %in% 'F' , paste0( 'pct' , i ) ]
+		
+}
 # sbo_fn <- file.path( path.expand( "~" ) , "SBO" , "this_file.rds" )
 # saveRDS( sbo_df , file = sbo_fn , compress = FALSE )
 # sbo_df <- readRDS( sbo_fn )
@@ -209,7 +237,7 @@ sbo_var <-
 	svydesign(
 		id = ~ 1 ,
 		weight = ~ newwgt ,
-		data = mitools::imputationList( var_list )
+		data = imputationList( var_list )
 	)
 
 # rm( var_list ) ; gc()
@@ -219,35 +247,6 @@ sbo_var <-
 sbo_design <- list( coef = sbo_coef , var = sbo_var )
 class( sbo_design ) <- 'sbosvyimputationList'
 
-# # keep only the variables you need
-# variables_to_keep <- 
-	# c( 
-		# "one" , 
-		# "newwgt" , 
-		# "tabwgt" , 
-		# "receipts_noisy" ,
-		# "employment_noisy" ,
-		# "n07_employer" ,
-		# "established" ,
-		# "healthins" ,
-		# "husbwife"
-	# )
-
-# # keep only columns used in this analysis
-# sbo_design$coef$variables <-
-	# sbo_design$coef$variables[ variables_to_keep ]
-	
-# sbo_design$var <-
-	# lapply( 
-		# sbo_design$var , 
-		# function( w ){
-			# w$variables <- w$variables[ variables_to_keep ]
-			# w
-		# }
-	# )
-	
-# gc()
-# # this step conserves RAM
 sbo_design <- 
 	sbo_update( 
 		sbo_design , 
@@ -257,37 +256,54 @@ sbo_design <-
 		healthins =
 			factor( healthins , levels = 1:2 ,
 				labels = c( "offered health insurance" , "did not offer health insurance" )
+			) ,
+			
+		hispanic_ownership =
+			factor(
+				ifelse( hispanic_pct == nonhispanic_pct , 2 ,
+				ifelse( hispanic_pct > nonhispanic_pct , 1 , 
+				ifelse( nonhispanic_pct > hispanic_pct , 3 , NA ) ) ) ,
+				levels = 1:3 ,
+				labels = c( 'hispanic' , 'equally hispanic/non-hispanic' , 'non-hispanic' )
+			) ,
+			
+		gender_ownership =
+			factor(
+				ifelse( male_pct == female_pct , 2 ,
+				ifelse( male_pct > female_pct , 1 , 
+				ifelse( female_pct > male_pct , 3 , NA ) ) ) ,
+				levels = 1:3 ,
+				labels = c( 'male' , 'equally male/female' , 'female' )
 			)
+		
 	)
-
-gc()
 sbo_MIcombine( sbo_with( sbo_design , svyby( ~ one , ~ one , unwtd.count ) ) )
 
-sbo_MIcombine( sbo_with( sbo_design , svyby( ~ one , ~ healthins , unwtd.count ) ) )
+sbo_MIcombine( sbo_with( sbo_design , svyby( ~ one , ~ gender_ownership , unwtd.count ) ) )
 sbo_MIcombine( sbo_with( sbo_design , svytotal( ~ one ) ) )
 
 sbo_MIcombine( sbo_with( sbo_design ,
-	svyby( ~ one , ~ healthins , svytotal )
+	svyby( ~ one , ~ gender_ownership , svytotal )
 ) )
 sbo_MIcombine( sbo_with( sbo_design , svymean( ~ receipts_noisy ) ) )
 
 sbo_MIcombine( sbo_with( sbo_design ,
-	svyby( ~ receipts_noisy , ~ healthins , svymean )
+	svyby( ~ receipts_noisy , ~ gender_ownership , svymean )
 ) )
 sbo_MIcombine( sbo_with( sbo_design , svymean( ~ n07_employer , na.rm = TRUE ) ) )
 
 sbo_MIcombine( sbo_with( sbo_design ,
-	svyby( ~ n07_employer , ~ healthins , svymean , na.rm = TRUE )
+	svyby( ~ n07_employer , ~ gender_ownership , svymean , na.rm = TRUE )
 ) )
 sbo_MIcombine( sbo_with( sbo_design , svytotal( ~ receipts_noisy ) ) )
 
 sbo_MIcombine( sbo_with( sbo_design ,
-	svyby( ~ receipts_noisy , ~ healthins , svytotal )
+	svyby( ~ receipts_noisy , ~ gender_ownership , svytotal )
 ) )
 sbo_MIcombine( sbo_with( sbo_design , svytotal( ~ n07_employer , na.rm = TRUE ) ) )
 
 sbo_MIcombine( sbo_with( sbo_design ,
-	svyby( ~ n07_employer , ~ healthins , svytotal , na.rm = TRUE )
+	svyby( ~ n07_employer , ~ gender_ownership , svytotal , na.rm = TRUE )
 ) )
 sbo_MIcombine( sbo_with( sbo_design ,
 	svyquantile(
@@ -297,7 +313,7 @@ sbo_MIcombine( sbo_with( sbo_design ,
 
 sbo_MIcombine( sbo_with( sbo_design ,
 	svyby(
-		~ receipts_noisy , ~ healthins , svyquantile ,
+		~ receipts_noisy , ~ gender_ownership , svyquantile ,
 		0.5 , se = TRUE ,
 		ci = TRUE 
 ) ) )
@@ -318,7 +334,7 @@ cv( this_result )
 
 grouped_result <-
 	sbo_MIcombine( sbo_with( sbo_design ,
-		svyby( ~ receipts_noisy , ~ healthins , svymean )
+		svyby( ~ receipts_noisy , ~ gender_ownership , svymean )
 	) )
 
 coef( grouped_result )
@@ -346,4 +362,34 @@ glm_result <-
 	) )
 	
 glm_result
+
+hispanic_receipts_result <- sbo_MIcombine( sbo_with( sbo_design , svyby( ~ receipts_noisy , ~ hispanic_ownership , svytotal ) ) )
+
+stopifnot( round( coef( hispanic_receipts_result )[ 'hispanic' ] , 0 ) == 350763923 )
+stopifnot( round( coef( hispanic_receipts_result )[ 'equally hispanic/non-hispanic' ] , 0 ) == 56166354 )
+stopifnot( round( coef( hispanic_receipts_result )[ 'non-hispanic' ] , 0 ) == 10540609303 )
+
+stopifnot( round( cv( hispanic_receipts_result )[ 'hispanic' ] , 2 ) == 0.02 )
+stopifnot( round( cv( hispanic_receipts_result )[ 'equally hispanic/non-hispanic' ] , 2 ) == 0.06 )
+stopifnot( round( cv( hispanic_receipts_result )[ 'non-hispanic' ] , 2 ) == 0 )
+
+hispanic_payroll_result <- sbo_MIcombine( sbo_with( sbo_design , svyby( ~ payroll_noisy , ~ hispanic_ownership , svytotal ) ) )
+
+stopifnot( round( coef( hispanic_payroll_result )[ 'hispanic' ] , 0 ) == 54367702 )
+stopifnot( round( coef( hispanic_payroll_result )[ 'equally hispanic/non-hispanic' ] , 0 ) == 11083148 )
+stopifnot( round( coef( hispanic_payroll_result )[ 'non-hispanic' ] , 0 ) == 1875353228 )
+
+stopifnot( round( cv( hispanic_payroll_result )[ 'hispanic' ] , 2 ) == 0.01 )
+stopifnot( round( cv( hispanic_payroll_result )[ 'equally hispanic/non-hispanic' ] , 2 ) == 0.06 )
+stopifnot( round( cv( hispanic_payroll_result )[ 'non-hispanic' ] , 2 ) == 0 )
+
+hispanic_employment_result <- sbo_MIcombine( sbo_with( sbo_design , svyby( ~ employment_noisy , ~ hispanic_ownership , svytotal ) ) )
+
+stopifnot( round( coef( hispanic_employment_result )[ 'hispanic' ] , 0 ) == 2026406 )
+stopifnot( round( coef( hispanic_employment_result )[ 'equally hispanic/non-hispanic' ] , 0 ) == 400152 )
+stopifnot( round( coef( hispanic_employment_result )[ 'non-hispanic' ] , 0 ) == 56889606 )
+
+stopifnot( round( cv( hispanic_employment_result )[ 'hispanic' ] , 2 ) == 0.01 )
+stopifnot( round( cv( hispanic_employment_result )[ 'equally hispanic/non-hispanic' ] , 2 ) == 0.05 )
+stopifnot( round( cv( hispanic_employment_result )[ 'non-hispanic' ] , 2 ) == 0 )
 
