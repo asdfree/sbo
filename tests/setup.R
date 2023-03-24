@@ -1,15 +1,6 @@
 # butchers, chandlers, baked
 # sea shanty, filial pie
 # call your mom and pop
-#' dual design calculations for the survey of business owners
-#'
-#' the code{mitools::sbo_MIcombine} variant includes a 2007-specific variance adjustment. this will change in other years.
-#' this adjustment statistic was pulled from the middle of page 8
-#' url{https://www2.census.gov/econ/sbo/07/pums/2007_sbo_pums_users_guide.pdf#page=8}
-#'
-#' each of these sbo-specific functions contain a variant of some other code{library(survey)} function that also maintains the census bureau's dual design calculation.
-#' these functions expect both the coefficient and the variance survey objects
-#'
 sbo_MIcombine <-
 	function( x , adjustment = 1.992065 ){
 	
@@ -23,39 +14,38 @@ sbo_MIcombine <-
 				variance.shell
 			}
 			
-		# overwrite all the diagonals in the variance svy.sbo object
+		# overwrite all the diagonals in the variance this_design object
 		coef.variances <- lapply( x$var , diag.replacement )
 	
-		# add 'em all together and divide by ten.
+		# add then divide by ten
 		midpoint <- Reduce( '+' , coef.variances ) / 10
 	
 		# initiate another function that takes some object,
-		# subtracts the midpoint, squares it, and divides by ninety
+		# subtracts the midpoint, squares it, divides by ninety
 		midpoint.var <- function( z ){ 1/10 * ( ( midpoint - z )^2 / 9 ) }
 	
 		# sum up all the differences into a single object
 		variance <- Reduce( '+' , lapply( coef.variances , midpoint.var ) )
 		
-		# adjust every. single. number.
+		# adjust every number with the factor in the user guide
 		adj_var <- adjustment * variance
 
-		# construct a result that looks a lot like
-		# other sbo_MIcombine methods.
+		# construct a result that looks like
+		# other sbo_MIcombine methods
 		rval <-
 			list( 
 				coefficients = coef( x$coef ) ,
 				variance = adj_var
 			)
 		
-		# call it an MIresult class, just like all other sbo_MIcombine results.
+		# call it an MIresult class, like other sbo_MIcombine results
 		class( rval ) <- 'MIresult'
 		
-		# return it at the end of the function.
 		rval
 	}
 
 sbo_with <-
-	function ( sbo.svy , expr , ... ){
+	function ( this_design , expr , ... ){
 	
 		pf <- parent.frame()
 		
@@ -64,16 +54,16 @@ sbo_with <-
 		expr$design <- as.name(".design")
 
 		# this pulls in means, medians, totals, etc.
-		# notice it uses sbo.svy$coef
-		results <- eval( expr , list( .design = sbo.svy$coef ) )
+		# notice it uses this_design$coef
+		results <- eval( expr , list( .design = this_design$coef ) )
 		
 		gc()
 		
 		# this is used to calculate the variance, adjusted variance, standard error
-		# notice it uses the sbo.svy$var object
+		# notice it uses the this_design$var object
 		variances <- 
 			lapply( 
-				sbo.svy$var$designs , 
+				this_design$var$designs , 
 				function( .design ){ 
 					eval( expr , list( .design = .design ) , enclos = pf ) 
 				} 
@@ -174,20 +164,15 @@ sbo_df <- data.frame( sbo_tbl )
 names( sbo_df ) <- tolower( names( sbo_df ) )
 
 sbo_df[ , 'one' ] <- 1
-
-# and use the weights displayed in the census bureau's technical documentation
 sbo_df[ , 'newwgt' ] <- 10 * sbo_df[ , 'tabwgt' ] * sqrt( 1 - 1 / sbo_df[ , 'tabwgt' ] )
-# https://www2.census.gov/econ/sbo/07/pums/2007_sbo_pums_users_guide.pdf#page=7
-
 # replace percent missings with zeroes
 for( i in 1:4 ) sbo_df[ is.na( sbo_df[ , paste0( 'pct' , i ) ] ) , paste0( 'pct' , i ) ] <- 0
 
-# count ownership ethnicity
+# sum up ownership ethnicity and gender
 sbo_df[ , 'hispanic_pct' ] <- sbo_df[ , 'nonhispanic_pct' ] <- 0
-
-# count ownership gender
 sbo_df[ , 'male_pct' ] <- sbo_df[ , 'female_pct' ] <- 0
 
+# loop through the first four owners' ethnicity and sex variables
 for( i in 1:4 ) {
 
 	sbo_df[ sbo_df[ , paste0( 'eth' , i ) ] %in% 'H' , 'hispanic_pct' ] <-
@@ -213,26 +198,18 @@ for( i in 1:4 ) {
 library(survey)
 library(mitools)
 
+# break random groups into ten separate data.frame objects within a list
 var_list <- NULL
 
 for( i in 1:10 ) { var_list <- c( var_list , list( subset( sbo_df , rg == i ) ) ) }
 
-#####################################################
-# survey design for a hybrid database-backed object #
-#####################################################
-
-# create a survey design object with the SBO design
-# to use for the coefficients: means, medians, totals, etc.
 sbo_coef <-
 	svydesign(
 		id = ~ 1 ,
 		weight = ~ tabwgt ,
 		data = sbo_df
 	)
-# this one just uses the original table `x`
 
-# create a survey design object with the SBO design
-# to use for the variance and standard error
 sbo_var <-
 	svydesign(
 		id = ~ 1 ,
@@ -240,13 +217,9 @@ sbo_var <-
 		data = imputationList( var_list )
 	)
 
-# rm( var_list ) ; gc()
-# this one uses the ten `x1` thru `x10` tables you just made.
-
-# slap 'em together into a single list object..
 sbo_design <- list( coef = sbo_coef , var = sbo_var )
-class( sbo_design ) <- 'sbosvyimputationList'
 
+class( sbo_design ) <- 'sbosvyimputationList'
 sbo_design <- 
 	sbo_update( 
 		sbo_design , 
@@ -264,7 +237,7 @@ sbo_design <-
 				ifelse( hispanic_pct > nonhispanic_pct , 1 , 
 				ifelse( nonhispanic_pct > hispanic_pct , 3 , NA ) ) ) ,
 				levels = 1:3 ,
-				labels = c( 'hispanic' , 'equally hispanic/non-hispanic' , 'non-hispanic' )
+				labels = c( 'hispanic' , 'equally hisp/non' , 'non-hispanic' )
 			) ,
 			
 		gender_ownership =
@@ -363,33 +336,41 @@ glm_result <-
 	
 glm_result
 
-hispanic_receipts_result <- sbo_MIcombine( sbo_with( sbo_design , svyby( ~ receipts_noisy , ~ hispanic_ownership , svytotal ) ) )
+hispanic_receipts_result <-
+	sbo_MIcombine( sbo_with( sbo_design , 
+		svyby( ~ receipts_noisy , ~ hispanic_ownership , svytotal )
+	) )
 
+hispanic_payroll_result <-
+	sbo_MIcombine( sbo_with( sbo_design , 
+		svyby( ~ payroll_noisy , ~ hispanic_ownership , svytotal )
+	) )
+
+hispanic_employment_result <-
+	sbo_MIcombine( sbo_with( sbo_design , 
+		svyby( ~ employment_noisy , ~ hispanic_ownership , svytotal )
+	) )
 stopifnot( round( coef( hispanic_receipts_result )[ 'hispanic' ] , 0 ) == 350763923 )
-stopifnot( round( coef( hispanic_receipts_result )[ 'equally hispanic/non-hispanic' ] , 0 ) == 56166354 )
+stopifnot( round( coef( hispanic_receipts_result )[ 'equally hisp/non' ] , 0 ) == 56166354 )
 stopifnot( round( coef( hispanic_receipts_result )[ 'non-hispanic' ] , 0 ) == 10540609303 )
 
-stopifnot( round( cv( hispanic_receipts_result )[ 'hispanic' ] , 2 ) == 0.02 )
-stopifnot( round( cv( hispanic_receipts_result )[ 'equally hispanic/non-hispanic' ] , 2 ) == 0.06 )
-stopifnot( round( cv( hispanic_receipts_result )[ 'non-hispanic' ] , 2 ) == 0 )
-
-hispanic_payroll_result <- sbo_MIcombine( sbo_with( sbo_design , svyby( ~ payroll_noisy , ~ hispanic_ownership , svytotal ) ) )
-
 stopifnot( round( coef( hispanic_payroll_result )[ 'hispanic' ] , 0 ) == 54367702 )
-stopifnot( round( coef( hispanic_payroll_result )[ 'equally hispanic/non-hispanic' ] , 0 ) == 11083148 )
+stopifnot( round( coef( hispanic_payroll_result )[ 'equally hisp/non' ] , 0 ) == 11083148 )
 stopifnot( round( coef( hispanic_payroll_result )[ 'non-hispanic' ] , 0 ) == 1875353228 )
 
-stopifnot( round( cv( hispanic_payroll_result )[ 'hispanic' ] , 2 ) == 0.01 )
-stopifnot( round( cv( hispanic_payroll_result )[ 'equally hispanic/non-hispanic' ] , 2 ) == 0.06 )
-stopifnot( round( cv( hispanic_payroll_result )[ 'non-hispanic' ] , 2 ) == 0 )
-
-hispanic_employment_result <- sbo_MIcombine( sbo_with( sbo_design , svyby( ~ employment_noisy , ~ hispanic_ownership , svytotal ) ) )
-
 stopifnot( round( coef( hispanic_employment_result )[ 'hispanic' ] , 0 ) == 2026406 )
-stopifnot( round( coef( hispanic_employment_result )[ 'equally hispanic/non-hispanic' ] , 0 ) == 400152 )
+stopifnot( round( coef( hispanic_employment_result )[ 'equally hisp/non' ] , 0 ) == 400152 )
 stopifnot( round( coef( hispanic_employment_result )[ 'non-hispanic' ] , 0 ) == 56889606 )
 
+stopifnot( round( cv( hispanic_receipts_result )[ 'hispanic' ] , 2 ) == 0.02 )
+stopifnot( round( cv( hispanic_receipts_result )[ 'equally hisp/non' ] , 2 ) == 0.06 )
+stopifnot( round( cv( hispanic_receipts_result )[ 'non-hispanic' ] , 2 ) == 0 )
+
+stopifnot( round( cv( hispanic_payroll_result )[ 'hispanic' ] , 2 ) == 0.01 )
+stopifnot( round( cv( hispanic_payroll_result )[ 'equally hisp/non' ] , 2 ) == 0.06 )
+stopifnot( round( cv( hispanic_payroll_result )[ 'non-hispanic' ] , 2 ) == 0 )
+
 stopifnot( round( cv( hispanic_employment_result )[ 'hispanic' ] , 2 ) == 0.01 )
-stopifnot( round( cv( hispanic_employment_result )[ 'equally hispanic/non-hispanic' ] , 2 ) == 0.05 )
+stopifnot( round( cv( hispanic_employment_result )[ 'equally hisp/non' ] , 2 ) == 0.05 )
 stopifnot( round( cv( hispanic_employment_result )[ 'non-hispanic' ] , 2 ) == 0 )
 
