@@ -124,7 +124,6 @@ sbo_update <-
 	}
 
 sbo_degf <- function( x ) degf( x$coef )
-
 library(httr)
 library(readr)
 
